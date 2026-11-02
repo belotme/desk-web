@@ -1,5 +1,5 @@
 // Desk app. Data path comes from #d=… (stored in localStorage, never in this code).
-(function(){const h=new URLSearchParams(location.hash.slice(1));if(h.get('d')){localStorage.desk_d=h.get('d');history.replaceState(null,'',location.pathname)}})();
+(function(){const h=new URLSearchParams(location.hash.slice(1));if(h.get('d'))localStorage.desk_d=h.get('d')})();
 const D=localStorage.desk_d;const BASE=!D?null:D.includes('/')?`https://gist.githubusercontent.com/${D}/raw/`:`d/${D}/`;
 const $=s=>document.querySelector(s),app=$('#app');let tab='desk',range='LIVE',cache={},actN=30,lastOk=0,err=null;
 const money=v=>v==null?'—':(v<0?'-$':'$')+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -8,7 +8,7 @@ const ago=ts=>{const t=typeof ts=='number'?ts*1000:Date.parse(ts);const s=(Date.
 async function get(n){const r=await fetch(BASE+n+'?t='+Date.now(),{cache:'no-store'});if(!r.ok)throw Error(r.status==404?'not found':'HTTP '+r.status);return r.json()}
 async function load(){if(!BASE)return render();try{const[s,c,a,ac]=await Promise.all(['state.json','chart.json','activity.json','account.json'].map(get));
  cache={state:s,chart:c,activity:a,account:ac};err=null;lastOk=Date.now()}catch(e){err=e.message}render()}
-function render(){if(!BASE){app.innerHTML=`<div class="state">No desk linked.<br><span class="sub">Open the private link from Telegram (it ends in #d=…).</span></div>`;return}
+function render(){if(!BASE){app.innerHTML=`<div class="state">No desk linked.<br><span class="sub">Open your private desk link or paste it below</span><input id="lnk" placeholder="Paste your desk link" style="width:100%;margin-top:16px;padding:12px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--tx);font-size:16px"><button class="more" onclick="saveLink()">Save</button><div id="lerr" class="sub" style="color:var(--r)"></div></div>`;return}
  if(!cache.state){app.innerHTML=err?`<div class="state err">Can't reach the desk (${esc(err)}).<br><span class="sub">Retrying every 15s.</span></div>`:`<div class="state">Loading…</div>`;return}
  const stale=err?`<div class="sub" style="color:var(--r)">Offline · last update ${ago(lastOk/1000)} ago</div>`:'';app.innerHTML=stale+({desk,activity,account}[tab])()}
 function desk(){const s=cache.state,ch=cache.chart[range]||{points:[],marks:[]};
@@ -40,3 +40,6 @@ async function audit(m){try{const a=await get(`audit_${m}.json`);sheet(`<div cla
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('on',x==b));render()});
 $('#sheet').onclick=e=>{if(e.target.id=='sheet'||e.target.classList.contains('x'))$('#sheet').hidden=true};
 load();setInterval(load,15000);
+
+function saveLink(){const v=($('#lnk').value||'').trim();let d=null;const m=v.match(/[#&]d=([^&\s]+)/);if(m)d=decodeURIComponent(m[1]);else if(/^[\w-]+\/[0-9a-f]{20,}$/i.test(v))d=v;
+ if(!d){$('#lerr').textContent='That doesn\'t look like a desk link.';return}localStorage.desk_d=d;if(!location.hash.includes('d='))history.replaceState(null,'',location.pathname+'#d='+encodeURIComponent(d));location.reload()}
